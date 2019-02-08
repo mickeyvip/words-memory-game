@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, div, h1, main_, option, p, select, span, text)
+import Html exposing (Html, div, h1, i, li, main_, option, p, select, span, text, ul)
 import Html.Attributes exposing (class, selected, value)
 import Html.Events exposing (onInput)
 
@@ -81,6 +81,7 @@ view model =
                     [ class "has-text-centered" ]
                     [ text model.sentence ]
                 , viewSentence model.chosenSentence model.chosenWords
+                , viewChosenWords model.chosenWords model.chosenSentence
                 ]
             ]
         ]
@@ -131,6 +132,41 @@ viewHiddenWord hiddenWord chosenWords =
 
         _ ->
             text ""
+
+
+viewChosenWords : Words -> Words -> Html msg
+viewChosenWords chosenWords sentenceWords =
+    let
+        viewChosenWord : Word -> Html msg
+        viewChosenWord chosenWord =
+            case chosenWord of
+                HiddenWord ( _, wordString ) ->
+                    let
+                        isCorrectGuess : Bool
+                        isCorrectGuess =
+                            List.member chosenWord sentenceWords
+
+                        className : String
+                        className =
+                            if isCorrectGuess then
+                                "has-text-success"
+
+                            else
+                                "has-text-grey-light"
+                    in
+                    li []
+                        [ span [ class className ]
+                            [ text wordString
+                            , text " "
+                            , span [ class "icon is-small" ]
+                                [ i [ class "far fa-check-circle" ] [] ]
+                            ]
+                        ]
+
+                SentenceWord _ ->
+                    text ""
+    in
+    ul [] (List.map viewChosenWord chosenWords)
 
 
 viewTitle : Html msg
