@@ -1,0 +1,11 @@
+.hidden-word,
+.sentence-word {
+    display: inline-block;
+    margin-left: 0.5em;
+    margin-bottom: 1em;
+    line-height: 2em;
+}
+
+.sentence-word:first-child {
+    margin-left: 0;
+}
