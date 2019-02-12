@@ -42,11 +42,16 @@ initialModel =
     }
 
 
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( initialModel, Cmd.none )
+
+
 type Msg
     = WordChanged Int String
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         WordChanged index wordString ->
@@ -68,7 +73,7 @@ update msg model =
                 newSentence =
                     List.map updateWord model.chosenSentence
             in
-            { model | chosenSentence = newSentence }
+            ( { model | chosenSentence = newSentence }, Cmd.none )
 
 
 view : Model -> Html Msg
@@ -175,10 +180,20 @@ viewTitle =
         [ text "Words Memory Game" ]
 
 
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = initialModel
+    Browser.element
+        { view = view
+        , init = init
         , update = update
-        , view = view
+        , subscriptions = subscriptions
         }
