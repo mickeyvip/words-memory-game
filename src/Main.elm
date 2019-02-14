@@ -1,9 +1,11 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, div, h1, i, li, main_, option, p, select, span, text, ul)
+import Html exposing (Html, button, div, h1, i, li, main_, option, p, select, span, text, ul)
 import Html.Attributes exposing (class, selected, value)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onClick, onInput)
+import Random
+import Random.List
 
 
 type Word
@@ -25,30 +27,28 @@ type alias Model =
 initialModel : Model
 initialModel =
     { sentence = "The pen is mightier than the sword"
-    , chosenWords =
-        [ HiddenWord ( 1, "pen" )
-        , HiddenWord ( 6, "sword" )
-        , HiddenWord ( 3, "mightier" )
-        ]
+    , chosenWords = []
     , chosenSentence =
         [ SentenceWord ( 0, "The" )
-        , HiddenWord ( 1, "" )
+        , SentenceWord ( 1, "pen" )
         , SentenceWord ( 2, "is" )
-        , HiddenWord ( 3, "" )
+        , SentenceWord ( 3, "mightier" )
         , SentenceWord ( 4, "than" )
         , SentenceWord ( 5, "the" )
-        , HiddenWord ( 6, "" )
+        , SentenceWord ( 6, "sword" )
         ]
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( initialModel, Cmd.none )
+    ( initialModel, chooseWords initialModel.chosenSentence )
 
 
 type Msg
     = WordChanged Int String
+    | WordsChosen Words
+    | NewGame
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -75,6 +75,56 @@ update msg model =
             in
             ( { model | chosenSentence = newSentence }, Cmd.none )
 
+        WordsChosen words ->
+            let
+                newSentence =
+                    makeChosenSentence model.chosenSentence words
+
+                newChosenWords =
+                    makeChosenWords words
+            in
+            ( { model
+                | chosenWords = newChosenWords
+                , chosenSentence = newSentence
+              }
+            , Cmd.none
+            )
+
+        NewGame ->
+            ( initialModel, chooseWords initialModel.chosenSentence )
+
+
+makeChosenSentence : Words -> Words -> Words
+makeChosenSentence chosenSentence chosenWords =
+    List.map
+        (\word ->
+            case word of
+                SentenceWord ( index, w ) ->
+                    if List.member word chosenWords then
+                        HiddenWord ( index, "" )
+
+                    else
+                        word
+
+                _ ->
+                    word
+        )
+        chosenSentence
+
+
+makeChosenWords : Words -> Words
+makeChosenWords chosenWords =
+    List.map
+        (\word ->
+            case word of
+                SentenceWord w ->
+                    HiddenWord w
+
+                _ ->
+                    word
+        )
+        chosenWords
+
 
 view : Model -> Html Msg
 view model =
@@ -87,6 +137,13 @@ view model =
                     [ text model.sentence ]
                 , viewSentence model.chosenSentence model.chosenWords
                 , viewChosenWords model.chosenWords model.chosenSentence
+                , div [ class "is-clearfix" ]
+                    [ button
+                        [ class "button is-info is-pulled-right"
+                        , onClick NewGame
+                        ]
+                        [ text "New Game" ]
+                    ]
                 ]
             ]
         ]
@@ -178,6 +235,18 @@ viewTitle : Html msg
 viewTitle =
     h1 [ class "title has-text-centered" ]
         [ text "Words Memory Game" ]
+
+
+
+---- COMMANDS ----
+
+
+chooseWords : Words -> Cmd Msg
+chooseWords chosenSentence =
+    chosenSentence
+        |> Random.List.shuffle
+        |> Random.map (List.take 3)
+        |> Random.generate WordsChosen
 
 
 
