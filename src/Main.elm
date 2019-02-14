@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, h1, i, li, main_, option, p, select, span, text, ul)
+import Html exposing (Html, button, div, h1, h3, h4, i, li, main_, option, p, select, span, text, ul)
 import Html.Attributes exposing (class, selected, value)
 import Html.Events exposing (onClick, onInput)
 import Random
@@ -21,6 +21,7 @@ type alias Model =
     { sentence : String
     , chosenWords : Words
     , chosenSentence : Words
+    , win : Bool
     }
 
 
@@ -37,6 +38,7 @@ initialModel =
         , SentenceWord ( 5, "the" )
         , SentenceWord ( 6, "sword" )
         ]
+    , win = False
     }
 
 
@@ -72,8 +74,12 @@ update msg model =
                 newSentence : Words
                 newSentence =
                     List.map updateWord model.chosenSentence
+
+                win : Bool
+                win =
+                    isWin model.chosenWords newSentence
             in
-            ( { model | chosenSentence = newSentence }, Cmd.none )
+            ( { model | chosenSentence = newSentence, win = win }, Cmd.none )
 
         WordsChosen words ->
             let
@@ -126,25 +132,28 @@ makeChosenWords chosenWords =
         chosenWords
 
 
+isWin : Words -> Words -> Bool
+isWin chosenWords chosenSentence =
+    List.all
+        (\chosenWord -> List.member chosenWord chosenSentence)
+        chosenWords
+
+
 view : Model -> Html Msg
 view model =
+    let
+        currentView =
+            if model.win then
+                viewWin model.sentence
+
+            else
+                viewGame model.chosenSentence model.chosenWords
+    in
     main_ [ class "section" ]
         [ div [ class "container" ]
             [ viewTitle
             , div [ class "box" ]
-                [ p
-                    [ class "has-text-centered" ]
-                    [ text model.sentence ]
-                , viewSentence model.chosenSentence model.chosenWords
-                , viewChosenWords model.chosenWords model.chosenSentence
-                , div [ class "is-clearfix" ]
-                    [ button
-                        [ class "button is-info is-pulled-right"
-                        , onClick NewGame
-                        ]
-                        [ text "New Game" ]
-                    ]
-                ]
+                [ currentView ]
             ]
         ]
 
@@ -233,8 +242,35 @@ viewChosenWords chosenWords sentenceWords =
 
 viewTitle : Html msg
 viewTitle =
-    h1 [ class "title has-text-centered" ]
+    h1 [ class "title is-1 has-text-centered" ]
         [ text "Words Memory Game" ]
+
+
+viewGame : Words -> Words -> Html Msg
+viewGame chosenSentence chosenWords =
+    div []
+        [ viewSentence chosenSentence chosenWords
+        , viewChosenWords chosenWords chosenSentence
+        ]
+
+
+viewWin : String -> Html Msg
+viewWin sentence =
+    div []
+        [ div [ class "notification is-primary" ]
+            [ h3 [ class "title is-3 has-text-centered" ] [ text "You Win!" ]
+            ]
+        , h4
+            [ class "title is-4 has-text-centered" ]
+            [ text sentence ]
+        , div [ class "is-clearfix" ]
+            [ button
+                [ class "button is-info is-pulled-right"
+                , onClick NewGame
+                ]
+                [ text "New Game" ]
+            ]
+        ]
 
 
 
