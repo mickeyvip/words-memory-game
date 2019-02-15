@@ -29,22 +29,21 @@ initialModel : Model
 initialModel =
     { sentence = "The pen is mightier than the sword"
     , chosenWords = []
-    , chosenSentence =
-        [ SentenceWord ( 0, "The" )
-        , SentenceWord ( 1, "pen" )
-        , SentenceWord ( 2, "is" )
-        , SentenceWord ( 3, "mightier" )
-        , SentenceWord ( 4, "than" )
-        , SentenceWord ( 5, "the" )
-        , SentenceWord ( 6, "sword" )
-        ]
+    , chosenSentence = []
     , win = False
     }
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( initialModel, chooseWords initialModel.chosenSentence )
+    let
+        chosenSentence =
+            generateChosenSentence initialModel.sentence
+
+        model =
+            { initialModel | chosenSentence = chosenSentence }
+    in
+    ( model, chooseWords model.chosenSentence )
 
 
 type Msg
@@ -97,7 +96,7 @@ update msg model =
             )
 
         NewGame ->
-            ( initialModel, chooseWords initialModel.chosenSentence )
+            init ()
 
 
 makeChosenSentence : Words -> Words -> Words
@@ -137,6 +136,23 @@ isWin chosenWords chosenSentence =
     List.all
         (\chosenWord -> List.member chosenWord chosenSentence)
         chosenWords
+
+
+generateChosenSentence : String -> List Word
+generateChosenSentence sentence =
+    sentence
+        |> getWords
+        |> List.indexedMap (\index word -> SentenceWord ( index, word ))
+
+
+getWords : String -> List String
+getWords sentence =
+    sentence
+        |> String.words
+
+
+
+---- VIEW ----
 
 
 view : Model -> Html Msg
