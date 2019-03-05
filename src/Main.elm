@@ -14,11 +14,6 @@ type Answer
     = Answer String
 
 
-type Word
-    = SentenceWrd String
-    | HiddenWrd HiddenWord
-
-
 type alias HiddenWord =
     { sortKey : Int
     , playerChoice : PlayerChoice
@@ -26,27 +21,42 @@ type alias HiddenWord =
     }
 
 
+type Word
+    = SentenceWrd String
+    | HiddenWrd HiddenWord
+
+
 type alias Words =
     List Word
 
 
 type alias Model =
-    { originalSentence : String
-    , sentence : Words
+    { sentence : Words
     }
 
 
 initialModel : Model
 initialModel =
-    { originalSentence = "The pen is mightier than the sword"
-    , sentence =
+    { sentence =
         [ SentenceWrd "The"
-        , HiddenWrd { sortKey = 3, answer = Answer "pen", playerChoice = PlayerChoice "" }
+        , HiddenWrd
+            { sortKey = 3
+            , answer = Answer "pen"
+            , playerChoice = PlayerChoice ""
+            }
         , SentenceWrd "is"
-        , HiddenWrd { sortKey = 1, answer = Answer "mightier", playerChoice = PlayerChoice "" }
+        , HiddenWrd
+            { sortKey = 1
+            , answer = Answer "mightier"
+            , playerChoice = PlayerChoice ""
+            }
         , SentenceWrd "than"
         , SentenceWrd "the"
-        , HiddenWrd { sortKey = 2, answer = Answer "sword", playerChoice = PlayerChoice "" }
+        , HiddenWrd
+            { sortKey = 2
+            , answer = Answer "sword"
+            , playerChoice = PlayerChoice ""
+            }
         ]
     }
 
