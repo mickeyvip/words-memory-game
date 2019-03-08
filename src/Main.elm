@@ -104,7 +104,12 @@ hiddenWordsSorted hiddenWordList =
     List.sortBy .sortKey hiddenWordList
 
 
-update : Msg -> Model -> Model
+init : () -> ( Model, Cmd Msg )
+init _ =
+    ( initialModel, Cmd.none )
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         WordChanged index wordString ->
@@ -129,7 +134,7 @@ update msg model =
                 newSentence =
                     List.indexedMap updateWord model.sentence
             in
-            { model | sentence = newSentence }
+            ( { model | sentence = newSentence }, Cmd.none )
 
 
 view : Model -> Html Msg
@@ -259,10 +264,20 @@ viewTitle =
         [ text "Words Memory Game" ]
 
 
+
+---- SUBSCRIPTIONS ----
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Sub.none
+
+
 main : Program () Model Msg
 main =
-    Browser.sandbox
-        { init = initialModel
+    Browser.element
+        { init = init
         , update = update
         , view = view
+        , subscriptions = subscriptions
         }
