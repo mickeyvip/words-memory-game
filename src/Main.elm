@@ -6,9 +6,24 @@ import Html.Attributes exposing (class, selected, value)
 import Html.Events exposing (onInput)
 
 
+type PlayerChoice
+    = PlayerChoice String
+
+
+type Answer
+    = Answer String
+
+
+type alias HiddenWord =
+    { sortKey : Int
+    , playerChoice : PlayerChoice
+    , answer : Answer
+    }
+
+
 type Word
-    = SentenceWord ( Int, String )
-    | HiddenWord ( Int, String )
+    = SentenceWrd String
+    | HiddenWrd HiddenWord
 
 
 type alias Words =
@@ -16,28 +31,32 @@ type alias Words =
 
 
 type alias Model =
-    { sentence : String
-    , chosenWords : Words
-    , chosenSentence : Words
+    { sentence : Words
     }
 
 
 initialModel : Model
 initialModel =
-    { sentence = "The pen is mightier than the sword"
-    , chosenWords =
-        [ HiddenWord ( 1, "pen" )
-        , HiddenWord ( 6, "sword" )
-        , HiddenWord ( 3, "mightier" )
-        ]
-    , chosenSentence =
-        [ SentenceWord ( 0, "The" )
-        , HiddenWord ( 1, "" )
-        , SentenceWord ( 2, "is" )
-        , HiddenWord ( 3, "" )
-        , SentenceWord ( 4, "than" )
-        , SentenceWord ( 5, "the" )
-        , HiddenWord ( 6, "" )
+    { sentence =
+        [ SentenceWrd "The"
+        , HiddenWrd
+            { sortKey = 3
+            , answer = Answer "pen"
+            , playerChoice = PlayerChoice ""
+            }
+        , SentenceWrd "is"
+        , HiddenWrd
+            { sortKey = 1
+            , answer = Answer "mightier"
+            , playerChoice = PlayerChoice ""
+            }
+        , SentenceWrd "than"
+        , SentenceWrd "the"
+        , HiddenWrd
+            { sortKey = 2
+            , answer = Answer "sword"
+            , playerChoice = PlayerChoice ""
+            }
         ]
     }
 
@@ -46,29 +65,71 @@ type Msg
     = WordChanged Int String
 
 
+playerChoiceToString : PlayerChoice -> String
+playerChoiceToString (PlayerChoice stringValue) =
+    stringValue
+
+
+answerToString : Answer -> String
+answerToString (Answer stringValue) =
+    stringValue
+
+
+wordToString : Word -> String
+wordToString word =
+    case word of
+        SentenceWrd wordString ->
+            wordString
+
+        HiddenWrd { answer } ->
+            answerToString answer
+
+
+hiddenWords : Words -> List HiddenWord
+hiddenWords sentence =
+    List.filterMap
+        (\word ->
+            case word of
+                HiddenWrd hiddenWord ->
+                    Just hiddenWord
+
+                _ ->
+                    Nothing
+        )
+        sentence
+
+
+hiddenWordsSorted : List HiddenWord -> List HiddenWord
+hiddenWordsSorted hiddenWordList =
+    List.sortBy .sortKey hiddenWordList
+
+
 update : Msg -> Model -> Model
 update msg model =
     case msg of
         WordChanged index wordString ->
             let
-                updateWord : Word -> Word
-                updateWord word =
+                updateWord : Int -> Word -> Word
+                updateWord wordIndex word =
                     case word of
-                        (HiddenWord ( hiddenIndex, _ )) as hiddenWord ->
-                            if hiddenIndex == index then
-                                HiddenWord ( index, wordString )
+                        HiddenWrd hiddenWord ->
+                            if wordIndex == index then
+                                HiddenWrd
+                                    { hiddenWord
+                                        | playerChoice = PlayerChoice wordString
+                                    }
 
                             else
-                                hiddenWord
+                                word
 
                         _ ->
                             word
 
                 newSentence : Words
                 newSentence =
-                    List.map updateWord model.chosenSentence
+                    List.indexedMap updateWord model.sentence
             in
-            { model | chosenSentence = newSentence }
+            { model | sentence = newSentence }
 
 
 view : Model -> Html Msg
@@ -79,94 +140,117 @@ view model =
             , div [ class "box" ]
                 [ p
                     [ class "has-text-centered" ]
-                    [ text model.sentence ]
-                , viewSentence model.chosenSentence model.chosenWords
-                , viewChosenWords model.chosenWords model.chosenSentence
+                    [ viewOriginalSentence model.sentence
+                    , viewSentence model.sentence
+                    ]
+                , viewHiddenWords (hiddenWords model.sentence)
                 ]
             ]
         ]
 
 
-viewSentence : Words -> Words -> Html Msg
-viewSentence sentence chosenWords =
+viewOriginalSentence : Words -> Html Msg
+viewOriginalSentence words =
+    p
+        [ class "has-text-centered" ]
+        [ words
+            |> List.map wordToString
+            |> String.join " "
+            |> text
+        ]
+
+
+viewHiddenWords : List HiddenWord -> Html msg
+viewHiddenWords hiddenWordList =
+    let
+        hiddenWordsSorted_ : List HiddenWord
+        hiddenWordsSorted_ =
+            hiddenWordsSorted hiddenWordList
+
+        viewHiddenWord_ : HiddenWord -> Html msg
+        viewHiddenWord_ hiddenWord =
+            let
+                answerString : String
+                answerString =
+                    answerToString hiddenWord.answer
+
+                playerChoiceString : String
+                playerChoiceString =
+                    playerChoiceToString hiddenWord.playerChoice
+
+                isCorrectGuess : Bool
+                isCorrectGuess =
+                    answerString == playerChoiceString
+
+                className : String
+                className =
+                    if isCorrectGuess then
+                        "has-text-success"
+
+                    else
+                        "has-text-grey-light"
+            in
+            li []
+                [ span [ class className ]
+                    [ text answerString
+                    , text " "
+                    , span [ class "icon is-small" ]
+                        [ i [ class "far fa-check-circle" ] [] ]
+                    ]
+                ]
+    in
+    ul [] <| List.map viewHiddenWord_ hiddenWordsSorted_
+
+
+viewSentence : Words -> Html Msg
+viewSentence sentence =
+    let
+        hiddenWords_ : List HiddenWord
+        hiddenWords_ =
+            hiddenWords sentence
+    in
     div [ class "has-text-centered" ]
-        (List.map
-            (\sentenceWord ->
+        (List.indexedMap
+            (\index sentenceWord ->
                 case sentenceWord of
-                    SentenceWord ( _, word ) ->
+                    SentenceWrd word ->
                         span [ class "sentence-word" ] [ text word ]
 
-                    HiddenWord _ ->
-                        viewHiddenWord sentenceWord chosenWords
+                    HiddenWrd hiddenWord ->
+                        viewHiddenWord index hiddenWord hiddenWords_
             )
             sentence
         )
 
 
-viewHiddenWord : Word -> List Word -> Html Msg
-viewHiddenWord hiddenWord chosenWords =
-    case hiddenWord of
-        HiddenWord ( hiddenIndex, hiddenWordText ) ->
-            let
-                viewOption : String -> Html Msg
-                viewOption wordString =
-                    option
-                        [ value wordString, selected (wordString == hiddenWordText) ]
-                        [ text <| String.toLower wordString ]
-
-                wordElement : Word -> Html Msg
-                wordElement word =
-                    case word of
-                        HiddenWord ( _, wordString ) ->
-                            viewOption wordString
-
-                        SentenceWord ( _, wordString ) ->
-                            viewOption wordString
-            in
-            div [ class "select" ]
-                [ select [ class "hidden-word", onInput (WordChanged hiddenIndex) ] <|
-                    option []
-                        [ text "" ]
-                        :: List.map wordElement chosenWords
-                ]
-
-        _ ->
-            text ""
-
-
-viewChosenWords : Words -> Words -> Html msg
-viewChosenWords chosenWords sentenceWords =
+viewHiddenWord : Int -> HiddenWord -> List HiddenWord -> Html Msg
+viewHiddenWord index hiddenWord hiddenWords_ =
     let
-        viewChosenWord : Word -> Html msg
-        viewChosenWord chosenWord =
-            case chosenWord of
-                HiddenWord ( _, wordString ) ->
-                    let
-                        isCorrectGuess : Bool
-                        isCorrectGuess =
-                            List.member chosenWord sentenceWords
+        hiddenWordsSorted_ : List HiddenWord
+        hiddenWordsSorted_ =
+            hiddenWordsSorted hiddenWords_
 
-                        className : String
-                        className =
-                            if isCorrectGuess then
-                                "has-text-success"
+        playerChoiceString : String
+        playerChoiceString =
+            playerChoiceToString hiddenWord.playerChoice
 
-                            else
-                                "has-text-grey-light"
-                    in
-                    li []
-                        [ span [ class className ]
-                            [ text wordString
-                            , text " "
-                            , span [ class "icon is-small" ]
-                                [ i [ class "far fa-check-circle" ] [] ]
-                            ]
-                        ]
-
-                SentenceWord _ ->
-                    text ""
+        viewOption : HiddenWord -> Html Msg
+        viewOption { answer } =
+            let
+                answerString : String
+                answerString =
+                    answerToString answer
+            in
+            option
+                [ value answerString, selected (answerString == playerChoiceString) ]
+                [ text <| String.toLower answerString ]
     in
-    ul [] (List.map viewChosenWord chosenWords)
+    div [ class "select" ]
+        [ select [ class "hidden-word", onInput (WordChanged index) ] <|
+            option []
+                [ text "" ]
+                :: List.map viewOption hiddenWordsSorted_
+        ]
 
 
 viewTitle : Html msg
