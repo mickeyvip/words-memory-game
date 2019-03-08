@@ -1,9 +1,11 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, div, h1, i, li, main_, option, p, select, span, text, ul)
+import Html exposing (Html, button, div, h1, i, li, main_, option, p, select, span, text, ul)
 import Html.Attributes exposing (class, selected, value)
-import Html.Events exposing (onInput)
+import Html.Events exposing (onClick, onInput)
+import Random
+import Random.List
 
 
 type PlayerChoice
@@ -39,30 +41,20 @@ initialModel : Model
 initialModel =
     { sentence =
         [ SentenceWrd "The"
-        , HiddenWrd
-            { sortKey = 3
-            , answer = Answer "pen"
-            , playerChoice = PlayerChoice ""
-            }
+        , SentenceWrd "pen"
         , SentenceWrd "is"
-        , HiddenWrd
-            { sortKey = 1
-            , answer = Answer "mightier"
-            , playerChoice = PlayerChoice ""
-            }
+        , SentenceWrd "mightier"
         , SentenceWrd "than"
         , SentenceWrd "the"
-        , HiddenWrd
-            { sortKey = 2
-            , answer = Answer "sword"
-            , playerChoice = PlayerChoice ""
-            }
+        , SentenceWrd "sword"
         ]
     }
 
 
 type Msg
     = WordChanged Int String
+    | WordsChosen (List ( Int, Int ))
+    | NewGame
 
 
 playerChoiceToString : PlayerChoice -> String
@@ -106,7 +98,7 @@ hiddenWordsSorted hiddenWordList =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( initialModel, Cmd.none )
+    ( initialModel, chooseWords initialModel.sentence )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -136,6 +128,40 @@ update msg model =
             in
             ( { model | sentence = newSentence }, Cmd.none )
 
+        WordsChosen sortIndexes ->
+            let
+                sentence =
+                    List.indexedMap
+                        (\wordIndex word ->
+                            let
+                                hiddenIndex =
+                                    List.filter
+                                        (\( _, originalWordIndex ) ->
+                                            originalWordIndex == wordIndex
+                                        )
+                                        sortIndexes
+
+                                newWord =
+                                    case List.head hiddenIndex of
+                                        Just ( sortKey, _ ) ->
+                                            HiddenWrd
+                                                { sortKey = sortKey
+                                                , answer = Answer (wordToString word)
+                                                , playerChoice = PlayerChoice ""
+                                                }
+
+                                        Nothing ->
+                                            word
+                            in
+                            newWord
+                        )
+                        model.sentence
+            in
+            ( { model | sentence = sentence }, Cmd.none )
+
+        NewGame ->
+            ( initialModel, chooseWords initialModel.sentence )
+
 
 view : Model -> Html Msg
 view model =
@@ -149,6 +175,13 @@ view model =
                     , viewSentence model.sentence
                     ]
                 , viewHiddenWords (hiddenWords model.sentence)
+                , div [ class "is-clearfix" ]
+                    [ button
+                        [ class "button is-info is-pulled-right"
+                        , onClick NewGame
+                        ]
+                        [ text "New Game" ]
+                    ]
                 ]
             ]
         ]
@@ -262,6 +295,19 @@ viewTitle : Html msg
 viewTitle =
     h1 [ class "title has-text-centered" ]
         [ text "Words Memory Game" ]
+
+
+
+--- COMMANDS ----
+
+
+chooseWords : Words -> Cmd Msg
+chooseWords chosenSentence =
+    List.range 0 (List.length chosenSentence - 1)
+        |> Random.List.shuffle
+        |> Random.map (List.take 3)
+        |> Random.map (List.indexedMap Tuple.pair)
+        |> Random.generate WordsChosen
 
 
 
