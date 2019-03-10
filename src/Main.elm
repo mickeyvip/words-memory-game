@@ -1,7 +1,7 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, button, div, h1, i, li, main_, option, p, select, span, text, ul)
+import Html exposing (Html, button, div, h1, h3, h4, i, li, main_, option, p, select, span, text, ul)
 import Html.Attributes exposing (class, selected, value)
 import Html.Events exposing (onClick, onInput)
 import Random
@@ -101,6 +101,14 @@ init _ =
     ( initialModel, chooseWords initialModel.sentence )
 
 
+isWin : List HiddenWord -> Bool
+isWin =
+    List.all
+        (\{ answer, playerChoice } ->
+            answerToString answer == playerChoiceToString playerChoice
+        )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -165,24 +173,51 @@ update msg model =
 
 view : Model -> Html Msg
 view model =
+    let
+        win : Bool
+        win =
+            isWin <| hiddenWords model.sentence
+
+        currentView : Html Msg
+        currentView =
+            if win then
+                viewWin model.sentence
+
+            else
+                viewGame model.sentence
+    in
     main_ [ class "section" ]
         [ div [ class "container" ]
             [ viewTitle
             , div [ class "box" ]
-                [ p
-                    [ class "has-text-centered" ]
-                    [ viewOriginalSentence model.sentence
-                    , viewSentence model.sentence
-                    ]
-                , viewHiddenWords (hiddenWords model.sentence)
-                , div [ class "is-clearfix" ]
-                    [ button
-                        [ class "button is-info is-pulled-right"
-                        , onClick NewGame
-                        ]
-                        [ text "New Game" ]
-                    ]
+                [ currentView ]
+            ]
+        ]
+
+
+viewGame : Words -> Html Msg
+viewGame sentence =
+    div []
+        [ viewSentence sentence
+        , viewHiddenWords (hiddenWords sentence)
+        ]
+
+
+viewWin : Words -> Html Msg
+viewWin sentence =
+    div []
+        [ div [ class "notification is-primary" ]
+            [ h3 [ class "title is-3 has-text-centered" ] [ text "You Win!" ]
+            ]
+        , h4
+            [ class "title is-4 has-text-centered" ]
+            [ viewOriginalSentence sentence ]
+        , div [ class "is-clearfix" ]
+            [ button
+                [ class "button is-info is-pulled-right"
+                , onClick NewGame
                 ]
+                [ text "New Game" ]
             ]
         ]
 
