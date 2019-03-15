@@ -32,23 +32,33 @@ type alias Words =
     List Word
 
 
-type alias Model =
+type alias StateStarted =
+    { currentSentence : String }
+
+
+type alias StatePlaying =
     { sentence : Words
     }
 
 
+type alias StateWin =
+    { currentSentence : String
+    }
+
+
+type GameState
+    = Started StateStarted
+    | Playing StatePlaying
+    | Win StateWin
+
+
+type alias Model =
+    GameState
+
+
 initialModel : Model
 initialModel =
-    { sentence =
-        [ SentenceWrd "The"
-        , SentenceWrd "pen"
-        , SentenceWrd "is"
-        , SentenceWrd "mightier"
-        , SentenceWrd "than"
-        , SentenceWrd "the"
-        , SentenceWrd "sword"
-        ]
-    }
+    Started (StateStarted "The pen is mightier than the sword")
 
 
 type Msg
@@ -77,6 +87,13 @@ wordToString word =
             answerToString answer
 
 
+sentenceToString : Words -> String
+sentenceToString sentence =
+    sentence
+        |> List.map wordToString
+        |> String.join " "
+
+
 hiddenWords : Words -> List HiddenWord
 hiddenWords sentence =
     List.filterMap
@@ -96,9 +113,33 @@ hiddenWordsSorted hiddenWordList =
     List.sortBy .sortKey hiddenWordList
 
 
+generateSentence : String -> List Word
+generateSentence sentenceString =
+    sentenceString
+        |> String.words
+        |> List.map SentenceWrd
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( initialModel, chooseWords initialModel.sentence )
+    let
+        ( model, cmd ) =
+            case initialModel of
+                Started { currentSentence } ->
+                    let
+                        sentence : Words
+                        sentence =
+                            generateSentence currentSentence
+                    in
+                    ( Playing (StatePlaying sentence), chooseWords sentence )
+
+                Playing _ ->
+                    ( initialModel, Cmd.none )
+
+                Win _ ->
+                    ( initialModel, Cmd.none )
+    in
+    ( model, cmd )
 
 
 isWin : List HiddenWord -> Bool
@@ -114,77 +155,107 @@ update msg model =
     case msg of
         WordChanged index wordString ->
             let
-                updateWord : Int -> Word -> Word
-                updateWord wordIndex word =
-                    case word of
-                        HiddenWrd hiddenWord ->
-                            if wordIndex == index then
-                                HiddenWrd
-                                    { hiddenWord
-                                        | playerChoice = PlayerChoice wordString
-                                    }
+                model_ =
+                    case model of
+                        Playing { sentence } ->
+                            let
+                                updateWord : Int -> Word -> Word
+                                updateWord wordIndex word =
+                                    case word of
+                                        HiddenWrd hiddenWord ->
+                                            if wordIndex == index then
+                                                HiddenWrd
+                                                    { hiddenWord
+                                                        | playerChoice = PlayerChoice wordString
+                                                    }
+
+                                            else
+                                                word
+
+                                        _ ->
+                                            word
+
+                                newSentence : Words
+                                newSentence =
+                                    List.indexedMap updateWord sentence
+
+                                isWin_ =
+                                    isWin (hiddenWords newSentence)
+                            in
+                            if isWin_ then
+                                Win (StateWin (sentenceToString newSentence))
 
                             else
-                                word
+                                Playing (StatePlaying newSentence)
 
-                        _ ->
-                            word
+                        Started _ ->
+                            model
 
-                newSentence : Words
-                newSentence =
-                    List.indexedMap updateWord model.sentence
+                        Win _ ->
+                            model
             in
-            ( { model | sentence = newSentence }, Cmd.none )
+            ( model_, Cmd.none )
 
         WordsChosen sortIndexes ->
             let
-                sentence =
-                    List.indexedMap
-                        (\wordIndex word ->
+                model_ =
+                    case model of
+                        Playing { sentence } ->
                             let
-                                hiddenIndex =
-                                    List.filter
-                                        (\( _, originalWordIndex ) ->
-                                            originalWordIndex == wordIndex
+                                sentence_ =
+                                    List.indexedMap
+                                        (\wordIndex word ->
+                                            let
+                                                hiddenIndex =
+                                                    List.filter
+                                                        (\( _, originalWordIndex ) ->
+                                                            originalWordIndex == wordIndex
+                                                        )
+                                                        sortIndexes
+
+                                                newWord =
+                                                    case List.head hiddenIndex of
+                                                        Just ( sortKey, _ ) ->
+                                                            HiddenWrd
+                                                                { sortKey = sortKey
+                                                                , answer = Answer (wordToString word)
+                                                                , playerChoice = PlayerChoice ""
+                                                                }
+
+                                                        Nothing ->
+                                                            word
+                                            in
+                                            newWord
                                         )
-                                        sortIndexes
-
-                                newWord =
-                                    case List.head hiddenIndex of
-                                        Just ( sortKey, _ ) ->
-                                            HiddenWrd
-                                                { sortKey = sortKey
-                                                , answer = Answer (wordToString word)
-                                                , playerChoice = PlayerChoice ""
-                                                }
-
-                                        Nothing ->
-                                            word
+                                        sentence
                             in
-                            newWord
-                        )
-                        model.sentence
+                            Playing (StatePlaying sentence_)
+
+                        Started _ ->
+                            model
+
+                        Win _ ->
+                            model
             in
-            ( { model | sentence = sentence }, Cmd.none )
+            ( model_, Cmd.none )
 
         NewGame ->
-            ( initialModel, chooseWords initialModel.sentence )
+            init ()
 
 
 view : Model -> Html Msg
 view model =
     let
-        win : Bool
-        win =
-            isWin <| hiddenWords model.sentence
-
-        currentView : Html Msg
         currentView =
-            if win then
-                viewWin model.sentence
+            case model of
+                Playing { sentence } ->
+                    viewGame sentence
 
-            else
-                viewGame model.sentence
+                Started { currentSentence } ->
+                    viewStarted currentSentence
+
+                Win { currentSentence } ->
+                    viewWin currentSentence
     in
     main_ [ class "section" ]
         [ div [ class "container" ]
@@ -195,6 +266,12 @@ view model =
         ]
 
 
+viewStarted : String -> Html msg
+viewStarted currentSentence =
+    p []
+        [ text currentSentence ]
+
+
 viewGame : Words -> Html Msg
 viewGame sentence =
     div []
@@ -203,7 +280,7 @@ viewGame sentence =
         ]
 
 
-viewWin : Words -> Html Msg
+viewWin : String -> Html Msg
 viewWin sentence =
     div []
         [ div [ class "notification is-primary" ]
@@ -211,7 +288,10 @@ viewWin sentence =
             ]
         , h4
             [ class "title is-4 has-text-centered" ]
-            [ viewOriginalSentence sentence ]
+            [ p
+                [ class "has-text-centered" ]
+                [ text sentence ]
+            ]
         , div [ class "is-clearfix" ]
             [ button
                 [ class "button is-info is-pulled-right"
@@ -219,17 +299,6 @@ viewWin sentence =
                 ]
                 [ text "New Game" ]
             ]
-        ]
-
-
-viewOriginalSentence : Words -> Html Msg
-viewOriginalSentence words =
-    p
-        [ class "has-text-centered" ]
-        [ words
-            |> List.map wordToString
-            |> String.join " "
-            |> text
         ]
 
 
