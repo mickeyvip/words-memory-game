@@ -5,6 +5,7 @@ import Html exposing (Html, button, div, h1, h3, h4, i, li, main_, option, p, se
 import Html.Attributes exposing (class, selected, value)
 import Html.Events exposing (onClick, onInput)
 import Random
+import Random.Extra as Random
 import Random.List
 
 
@@ -47,7 +48,8 @@ type alias StateWin =
 
 
 type GameState
-    = Started StateStarted
+    = Initializing
+    | Started StateStarted
     | Playing StatePlaying
     | Win StateWin
 
@@ -63,6 +65,7 @@ initialModel =
 
 type Msg
     = WordChanged Int String
+    | SentenceChosen String
     | WordsChosen (List ( Int, Int ))
     | NewGame
 
@@ -120,26 +123,22 @@ generateSentence sentenceString =
         |> List.map SentenceWrd
 
 
+sentences : List String
+sentences =
+    [ "Two wrongs don't make a right"
+    , "The pen is mightier than the sword"
+    , "When in Rome do as the Romans"
+    , "Keep your friends close and your enemies closer"
+    , "You can't make an omelet without breaking a few eggs"
+    , "The grass is always greener on the other side of the hill"
+    , "You can lead a horse to water but you can't make him drink"
+    , "If you want something done right you have to do it yourself"
+    ]
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    let
-        ( model, cmd ) =
-            case initialModel of
-                Started { currentSentence } ->
-                    let
-                        sentence : Words
-                        sentence =
-                            generateSentence currentSentence
-                    in
-                    ( Playing (StatePlaying sentence), chooseWords sentence )
-
-                Playing _ ->
-                    ( initialModel, Cmd.none )
-
-                Win _ ->
-                    ( initialModel, Cmd.none )
-    in
-    ( model, cmd )
+    ( Initializing, chooseSentence sentences )
 
 
 isWin : List HiddenWord -> Bool
@@ -188,6 +187,9 @@ update msg model =
                             else
                                 Playing (StatePlaying newSentence)
 
+                        Initializing ->
+                            model
+
                         Started _ ->
                             model
 
@@ -196,12 +198,35 @@ update msg model =
             in
             ( model_, Cmd.none )
 
+        SentenceChosen sentenceString ->
+            case model of
+                Initializing ->
+                    let
+                        sentence : Words
+                        sentence =
+                            generateSentence sentenceString
+                    in
+                    ( Started (StateStarted sentenceString), chooseWords sentence )
+
+                Started _ ->
+                    ( model, Cmd.none )
+
+                Playing _ ->
+                    ( model, Cmd.none )
+
+                Win _ ->
+                    ( model, Cmd.none )
+
         WordsChosen sortIndexes ->
             let
                 model_ =
                     case model of
-                        Playing { sentence } ->
+                        Started { currentSentence } ->
                             let
+                                sentence : Words
+                                sentence =
+                                    generateSentence currentSentence
+
                                 sentence_ =
                                     List.indexedMap
                                         (\wordIndex word ->
@@ -231,7 +256,10 @@ update msg model =
                             in
                             Playing (StatePlaying sentence_)
 
-                        Started _ ->
+                        Initializing ->
+                            model
+
+                        Playing _ ->
                             model
 
                         Win _ ->
@@ -248,6 +276,9 @@ view model =
     let
         currentView =
             case model of
+                Initializing ->
+                    viewInitializing
+
                 Playing { sentence } ->
                     viewGame sentence
 
@@ -264,6 +295,12 @@ view model =
                 [ currentView ]
             ]
         ]
+
+
+viewInitializing : Html msg
+viewInitializing =
+    p []
+        [ text "Initializing..." ]
 
 
 viewStarted : String -> Html msg
@@ -412,6 +449,13 @@ chooseWords chosenSentence =
         |> Random.map (List.take 3)
         |> Random.map (List.indexedMap Tuple.pair)
         |> Random.generate WordsChosen
+
+
+chooseSentence : List String -> Cmd Msg
+chooseSentence sentences_ =
+    Random.sample sentences_
+        |> Random.map (Maybe.withDefault "")
+        |> Random.generate SentenceChosen
 
 
 
